@@ -28,10 +28,9 @@ export type editTicketParams = {
 export type updateTicketStatusParams = {
   ticketId: string;
   status: string;
-  userId?: string; // Optional field for admin actions on behalf of users
+  userId?: string;
 };
 
-///// responses
 export type authResponse = {
   status: number;
   message: string;
@@ -93,7 +92,6 @@ export interface updateTicketStatusResponse {
   message: string;
 }
 
-// interfaces
 export interface ticket {
   id: string;
   title: string;

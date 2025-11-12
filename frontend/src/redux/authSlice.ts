@@ -1,18 +1,6 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { userResponse } from "../types/apiServices";
-
-interface ViewAsUserState {
-  isViewingAsUser: boolean;
-  originalUser: userResponse | null;
-  currentUser: userResponse | null;
-}
-
-interface AuthState {
-  isAuthenticated: boolean;
-  user: userResponse | null;
-  isRefreshing: boolean;
-  viewAsUser: ViewAsUserState;
-}
+import { AuthState } from "../types/slices";
 
 const initialState: AuthState = {
   isAuthenticated: false,
@@ -33,7 +21,6 @@ const authSlice = createSlice({
       state.isAuthenticated = true;
       state.user = action.payload.user;
 
-      // Save original user if not already set (first login)
       if (!state.viewAsUser.originalUser) {
         state.viewAsUser.originalUser = action.payload.user;
       }

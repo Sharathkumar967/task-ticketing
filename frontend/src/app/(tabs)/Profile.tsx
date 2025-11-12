@@ -53,7 +53,6 @@ export default function ProfileScreen() {
     }
   };
 
-  // Determine if toggle should show: only if first login user was ADMIN
   const firstLoginRole = viewAsUser.originalUser?.role || user.role;
   const showRoleSwitchToggle = firstLoginRole === "ADMIN";
 
@@ -84,7 +83,6 @@ export default function ProfileScreen() {
             </Text>
           </View>
 
-          {/* Admin Role Switch Toggle */}
           {showRoleSwitchToggle && (
             <>
               <View style={styles.divider} />
@@ -152,9 +150,22 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
-  avatarText: { fontSize: 36, color: "#0052CC", fontWeight: "800" },
-  name: { fontSize: 24, fontWeight: "700", color: "#1A1A1A" },
-  email: { fontSize: 16, color: "#666", marginTop: 4, marginBottom: 20 },
+  avatarText: {
+    fontSize: 36,
+    color: "#0052CC",
+    fontWeight: "800",
+  },
+  name: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#1A1A1A",
+  },
+  email: {
+    fontSize: 16,
+    color: "#666",
+    marginTop: 4,
+    marginBottom: 20,
+  },
   infoBox: {
     width: "100%",
     backgroundColor: "#F7FAFF",
@@ -167,16 +178,31 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 10,
   },
-  label: { color: "#777", fontSize: 16, fontWeight: "500" },
-  value: { color: "#0052CC", fontSize: 16, fontWeight: "700" },
-  divider: { height: 1, backgroundColor: "#E5E9F2", marginVertical: 5 },
+  label: {
+    color: "#777",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  value: {
+    color: "#0052CC",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#E5E9F2",
+    marginVertical: 5,
+  },
   switchButton: {
     backgroundColor: "#0052CC",
     paddingHorizontal: 15,
     paddingVertical: 6,
     borderRadius: 8,
   },
-  switchButtonText: { color: "#fff", fontWeight: "700" },
+  switchButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
   badge: {
     marginTop: 5,
     color: "#FF0000",
