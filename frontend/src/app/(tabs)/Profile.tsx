@@ -2,7 +2,11 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
-import { logout } from "../../redux/authSlice";
+import {
+  logout,
+  switchToUserView,
+  switchBackToAdmin,
+} from "../../redux/authSlice";
 import { secureStore } from "../../utils/secureStore";
 import { ACCESS_TOKEN, REFRESH_TOKEN } from "../../constants/secureStoreKeys";
 import { useRouter } from "expo-router";
@@ -13,13 +17,11 @@ export default function ProfileScreen() {
   const dispatch = useDispatch();
   const router = useRouter();
   const user = useSelector((state: RootState) => state.auth.user);
+  const viewAsUser = useSelector((state: RootState) => state.auth.viewAsUser);
 
   const handleLogout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
-      {
-        text: "Cancel",
-        style: "cancel",
-      },
+      { text: "Cancel", style: "cancel" },
       {
         text: "Logout",
         onPress: async () => {
@@ -41,6 +43,19 @@ export default function ProfileScreen() {
   }
 
   const userInitial = user?.name?.charAt(0)?.toUpperCase() || "?";
+
+  const handleRoleSwitch = () => {
+    if (viewAsUser.isViewingAsUser) {
+      dispatch(switchBackToAdmin());
+    } else {
+      const userView = { ...user, role: "USER" };
+      dispatch(switchToUserView(userView));
+    }
+  };
+
+  // Determine if toggle should show: only if first login user was ADMIN
+  const firstLoginRole = viewAsUser.originalUser?.role || user.role;
+  const showRoleSwitchToggle = firstLoginRole === "ADMIN";
 
   return (
     <SafeAreaView style={styles.container}>
@@ -68,6 +83,27 @@ export default function ProfileScreen() {
               {new Date(user?.createdAt).toLocaleDateString("en-GB")}
             </Text>
           </View>
+
+          {/* Admin Role Switch Toggle */}
+          {showRoleSwitchToggle && (
+            <>
+              <View style={styles.divider} />
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>Switch Role</Text>
+                <TouchableOpacity
+                  style={styles.switchButton}
+                  onPress={handleRoleSwitch}
+                >
+                  <Text style={styles.switchButtonText}>
+                    {viewAsUser.isViewingAsUser ? "Admin View" : "User View"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              {viewAsUser.isViewingAsUser && (
+                <Text style={styles.badge}>Viewing as USER</Text>
+              )}
+            </>
+          )}
         </View>
       </View>
 
@@ -79,21 +115,14 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFF",
-  },
+  container: { flex: 1, backgroundColor: "#FFF" },
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#F3F6FF",
   },
-  loadingText: {
-    color: "#777",
-    fontSize: 18,
-  },
-
+  loadingText: { color: "#777", fontSize: 18 },
   profileCard: {
     width: "90%",
     backgroundColor: "#fff",
@@ -108,9 +137,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 6,
   },
-  avatarContainer: {
-    marginBottom: 20,
-  },
+  avatarContainer: { marginBottom: 20 },
   avatarCircle: {
     width: 90,
     height: 90,
@@ -125,22 +152,9 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
-  avatarText: {
-    fontSize: 36,
-    color: "#0052CC",
-    fontWeight: "800",
-  },
-  name: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#1A1A1A",
-  },
-  email: {
-    fontSize: 16,
-    color: "#666",
-    marginTop: 4,
-    marginBottom: 20,
-  },
+  avatarText: { fontSize: 36, color: "#0052CC", fontWeight: "800" },
+  name: { fontSize: 24, fontWeight: "700", color: "#1A1A1A" },
+  email: { fontSize: 16, color: "#666", marginTop: 4, marginBottom: 20 },
   infoBox: {
     width: "100%",
     backgroundColor: "#F7FAFF",
@@ -153,20 +167,21 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 10,
   },
-  label: {
-    color: "#777",
-    fontSize: 16,
-    fontWeight: "500",
+  label: { color: "#777", fontSize: 16, fontWeight: "500" },
+  value: { color: "#0052CC", fontSize: 16, fontWeight: "700" },
+  divider: { height: 1, backgroundColor: "#E5E9F2", marginVertical: 5 },
+  switchButton: {
+    backgroundColor: "#0052CC",
+    paddingHorizontal: 15,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
-  value: {
-    color: "#0052CC",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#E5E9F2",
-    marginVertical: 5,
+  switchButtonText: { color: "#fff", fontWeight: "700" },
+  badge: {
+    marginTop: 5,
+    color: "#FF0000",
+    fontWeight: "600",
+    alignSelf: "center",
   },
   logoutButton: {
     width: "90%",

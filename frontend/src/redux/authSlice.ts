@@ -32,19 +32,29 @@ const authSlice = createSlice({
     login: (state, action: PayloadAction<{ user: userResponse | null }>) => {
       state.isAuthenticated = true;
       state.user = action.payload.user;
+
+      // Save original user if not already set (first login)
+      if (!state.viewAsUser.originalUser) {
+        state.viewAsUser.originalUser = action.payload.user;
+      }
     },
     logout: (state) => {
       state.isAuthenticated = false;
       state.user = null;
+      state.viewAsUser = {
+        isViewingAsUser: false,
+        originalUser: null,
+        currentUser: null,
+      };
     },
     setRefreshing: (state, action: PayloadAction<boolean>) => {
       state.isRefreshing = action.payload;
     },
     switchToUserView: (state, action: PayloadAction<userResponse>) => {
-      if (state.user?.role === 'ADMIN') {
+      if (state.user?.role === "ADMIN") {
         state.viewAsUser = {
+          ...state.viewAsUser,
           isViewingAsUser: true,
-          originalUser: state.user,
           currentUser: action.payload,
         };
         state.user = action.payload;
@@ -54,8 +64,8 @@ const authSlice = createSlice({
       if (state.viewAsUser.originalUser) {
         state.user = state.viewAsUser.originalUser;
         state.viewAsUser = {
+          ...state.viewAsUser,
           isViewingAsUser: false,
-          originalUser: null,
           currentUser: null,
         };
       }
@@ -63,5 +73,11 @@ const authSlice = createSlice({
   },
 });
 
-export const { login, logout, setRefreshing, switchToUserView, switchBackToAdmin } = authSlice.actions;
+export const {
+  login,
+  logout,
+  setRefreshing,
+  switchToUserView,
+  switchBackToAdmin,
+} = authSlice.actions;
 export default authSlice.reducer;
