@@ -184,23 +184,46 @@ export const getAllTickets = async (
       return error(res, "Forbidden: Admin access required.", 403);
     }
 
+    const userId = req.user?.id;
+    if (!userId) {
+      return error(res, "User not authenticated.", 401);
+    }
+
+    // Get tickets created by this admin or assigned to this admin
     const tickets = await prisma.ticket.findMany({
+      where: {
+        OR: [
+          { createdById: userId }, // Tickets created by this admin
+          {
+            assignments: {
+              some: {
+                userId: userId, // Tickets assigned to this admin
+              },
+            },
+          },
+        ],
+      },
       orderBy: { createdAt: "desc" },
+      include: {
+        creator: { select: { id: true, name: true, email: true } },
+        assignments: {
+          include: { user: { select: { id: true, name: true, email: true } } },
+        },
+      },
     });
 
     return success(
       res,
       { total: tickets.length, tickets },
-      "All tickets fetched successfully.",
+      "Tickets fetched successfully.",
       200
     );
   } catch (err: any) {
-    console.error("Error fetching all tickets:", err);
+    console.error("Error fetching tickets:", err);
     return error(res, "Internal server error.", 500);
   }
 };
 
-// GET ASSIGNED TICKETS
 export const getAssignedTickets = async (
   req: AuthenticatedRequest,
   res: Response
