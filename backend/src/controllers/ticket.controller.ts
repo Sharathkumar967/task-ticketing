@@ -46,7 +46,6 @@ export const createTicket = async (
       },
     });
 
-    console.log("Ticket created");
     return success(res, ticket, "Ticket created successfully.", 200);
   } catch (err: any) {
     console.error("Error creating ticket:", err);
@@ -54,7 +53,6 @@ export const createTicket = async (
   }
 };
 
-// UPDATE TICKET STATUS
 // UPDATE TICKET STATUS
 export const updateTicketStatus = async (
   req: AuthenticatedRequest,
@@ -133,22 +131,55 @@ export const updateTicketStatus = async (
       });
     }
 
-    // Update assignment status
+    // Update the user's assignment status
     const updatedAssignment = await prisma.ticketAssignment.update({
       where: { id: assignment.id },
       data: { status: status as TicketStatus },
       include: { ticket: true },
     });
 
-    // Immediately update ticket overallStatus to match user update
-    await prisma.ticket.update({
-      where: { id: ticketId },
-      data: { overallStatus: status as TicketOverallStatus },
+    // Fetch all assignments to decide ticket overallStatus
+    const allAssignments = await prisma.ticketAssignment.findMany({
+      where: { ticketId },
     });
 
+    const allCompleted = allAssignments.every(
+      (a) => a.status === TicketStatus.COMPLETED
+    );
+
+    // Update ticket overallStatus only if all completed
+    let updatedTicket = null;
+    if (allCompleted) {
+      updatedTicket = await prisma.ticket.update({
+        where: { id: ticketId },
+        data: { overallStatus: TicketOverallStatus.COMPLETED },
+        include: { assignments: { include: { user: true } } },
+      });
+    } else {
+      // If not all completed, optionally set overallStatus to IN_PROGRESS if any user started
+      const anyInProgress = allAssignments.some(
+        (a) => a.status === TicketStatus.IN_PROGRESS
+      );
+      if (anyInProgress) {
+        updatedTicket = await prisma.ticket.update({
+          where: { id: ticketId },
+          data: { overallStatus: TicketOverallStatus.IN_PROGRESS },
+          include: { assignments: { include: { user: true } } },
+        });
+      } else {
+        // else keep as PENDING
+        updatedTicket = await prisma.ticket.update({
+          where: { id: ticketId },
+          data: { overallStatus: TicketOverallStatus.PENDING },
+          include: { assignments: { include: { user: true } } },
+        });
+      }
+    }
+
     return res.status(200).json({
-      message: "Assignment updated and overall status synced",
-      data: updatedAssignment,
+      message: "Assignment updated successfully",
+      assignment: updatedAssignment,
+      overallStatus: updatedTicket?.overallStatus,
     });
   } catch (err: any) {
     console.error("[updateTicketStatus] Error:", err);
@@ -170,8 +201,6 @@ export const getAllTickets = async (
     const userId = req.user?.id;
     if (!userId) return error(res, "User not authenticated.", 401);
 
-    console.log("🔍 Fetching all tickets for admin:", userId);
-
     const tickets = await prisma.ticket.findMany({
       where: {
         OR: [{ createdById: userId }, { assignments: { some: { userId } } }],
@@ -183,7 +212,6 @@ export const getAllTickets = async (
       },
     });
 
-    console.log(`Found ${tickets.length} tickets`);
     return success(
       res,
       { total: tickets.length, tickets },
@@ -205,8 +233,6 @@ export const getAssignedTickets = async (
     const userId = req.user?.id;
     if (!userId) return error(res, "Unauthorized.", 401);
 
-    console.log("🔍 Fetching tickets assigned to user:", userId);
-
     const tickets = await prisma.ticket.findMany({
       where: { assignments: { some: { userId } } },
       orderBy: { createdAt: "desc" },
@@ -216,7 +242,6 @@ export const getAssignedTickets = async (
       },
     });
 
-    console.log(`Found ${tickets.length} assigned tickets`);
     return success(
       res,
       { total: tickets.length, tickets },
@@ -241,8 +266,6 @@ export const getTicketById = async (
 
     if (!id) return error(res, "Ticket ID is required.", 400);
 
-    console.log("🔍 Fetching ticket by ID:", id);
-
     const ticket = await prisma.ticket.findUnique({
       where: { id },
       include: {
@@ -260,7 +283,6 @@ export const getTicketById = async (
       return error(res, "Access denied: Ticket not assigned to you.", 403);
     }
 
-    console.log("Ticket fetched successfully");
     return success(res, ticket, "Ticket fetched successfully.", 200);
   } catch (err: any) {
     console.error("Error fetching ticket by ID:", err);
@@ -277,8 +299,6 @@ export const editTicket = async (req: AuthenticatedRequest, res: Response) => {
     if (!id) return error(res, "Ticket ID is required.", 400);
     if (req.user?.role !== "ADMIN")
       return error(res, "Forbidden: Admin access required.", 403);
-
-    console.log("🛠 Editing ticket:", id);
 
     const existingTicket = await prisma.ticket.findUnique({ where: { id } });
     if (!existingTicket) return error(res, "Ticket not found.", 404);
@@ -322,7 +342,6 @@ export const editTicket = async (req: AuthenticatedRequest, res: Response) => {
       },
     });
 
-    console.log("Ticket updated successfully");
     return success(res, updatedTicket, "Ticket updated successfully.", 200);
   } catch (err: any) {
     console.error("Error editing ticket:", err);

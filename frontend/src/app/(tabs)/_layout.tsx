@@ -6,8 +6,6 @@ import { RootState } from "../../redux/store";
 
 export default function TabsLayout() {
   const role = useSelector((state: RootState) => state.auth.user?.role);
-  console.log("ROLE:", role);
-
   return (
     <Tabs
       screenOptions={{

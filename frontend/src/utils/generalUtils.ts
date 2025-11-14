@@ -18,3 +18,10 @@ export const formatShortDate = (date: Date) =>
     month: "short",
     year: "numeric",
   });
+
+export const formatDateForApi = (dateStr: string) => {
+  if (!dateStr) return null;
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return null;
+  return date.toISOString().split("T")[0];
+};

@@ -4,7 +4,13 @@ import { router } from "expo-router";
 import { formatDate } from "../utils/generalUtils";
 import { ticket } from "../types/apiServices";
 
-const Ticket = ({ item }: { item: ticket }) => (
+const Ticket = ({
+  item,
+  hideStatus,
+}: {
+  item: ticket;
+  hideStatus?: boolean;
+}) => (
   <TouchableOpacity
     style={[styles.card]}
     activeOpacity={0.8}
@@ -27,19 +33,23 @@ const Ticket = ({ item }: { item: ticket }) => (
       {item.description}
     </Text>
 
-    <View style={styles.metadata}>
-      <View style={styles.metaRow}>
-        <Ionicons name="calendar-outline" size={14} color="#777" />
-        <Text style={[styles.metaText]}>{formatDate(item.dueDate)}</Text>
-      </View>
-
-      {item.overallStatus && (
+    {!hideStatus && item.dueDate && (
+      <View style={styles.metadata}>
         <View style={styles.metaRow}>
-          <View style={[styles.priorityDot, { backgroundColor: "#27ae60" }]} />
-          <Text style={[styles.metaText]}>{item.overallStatus}</Text>
+          <Ionicons name="calendar-outline" size={14} color="#777" />
+          <Text style={[styles.metaText]}>{formatDate(item.dueDate)}</Text>
         </View>
-      )}
-    </View>
+
+        {item.overallStatus && (
+          <View style={styles.metaRow}>
+            <View
+              style={[styles.priorityDot, { backgroundColor: "#27ae60" }]}
+            />
+            <Text style={[styles.metaText]}>{item.overallStatus}</Text>
+          </View>
+        )}
+      </View>
+    )}
   </TouchableOpacity>
 );
 

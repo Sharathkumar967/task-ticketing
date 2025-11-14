@@ -100,13 +100,6 @@ export default function AuthScreen() {
                 onChangeText={setPassword}
                 secureTextEntry
               />
-              {isLogin && (
-                <TouchableOpacity style={styles.forgotPassword}>
-                  <Text style={styles.forgotPasswordText}>
-                    Forgot password?
-                  </Text>
-                </TouchableOpacity>
-              )}
             </View>
 
             {!isLogin && (
