@@ -54,6 +54,7 @@ export const createTicket = async (
 };
 
 // UPDATE TICKET STATUS
+// UPDATE TICKET STATUS
 export const updateTicketStatus = async (
   req: AuthenticatedRequest,
   res: Response
@@ -131,6 +132,13 @@ export const updateTicketStatus = async (
       });
     }
 
+    // Prevent users from updating if ticket is CLOSED
+    if (ticket.overallStatus === TicketOverallStatus.CLOSED) {
+      return res.status(403).json({
+        message: "Ticket is closed. No changes allowed.",
+      });
+    }
+
     // Update the user's assignment status
     const updatedAssignment = await prisma.ticketAssignment.update({
       where: { id: assignment.id },
@@ -138,7 +146,9 @@ export const updateTicketStatus = async (
       include: { ticket: true },
     });
 
-    // Fetch all assignments to decide ticket overallStatus
+    // Update overallStatus only if ticket is not CLOSED
+    let updatedTicket = ticket;
+
     const allAssignments = await prisma.ticketAssignment.findMany({
       where: { ticketId },
     });
@@ -147,8 +157,6 @@ export const updateTicketStatus = async (
       (a) => a.status === TicketStatus.COMPLETED
     );
 
-    // Update ticket overallStatus only if all completed
-    let updatedTicket = null;
     if (allCompleted) {
       updatedTicket = await prisma.ticket.update({
         where: { id: ticketId },
@@ -156,30 +164,24 @@ export const updateTicketStatus = async (
         include: { assignments: { include: { user: true } } },
       });
     } else {
-      // If not all completed, optionally set overallStatus to IN_PROGRESS if any user started
       const anyInProgress = allAssignments.some(
         (a) => a.status === TicketStatus.IN_PROGRESS
       );
-      if (anyInProgress) {
-        updatedTicket = await prisma.ticket.update({
-          where: { id: ticketId },
-          data: { overallStatus: TicketOverallStatus.IN_PROGRESS },
-          include: { assignments: { include: { user: true } } },
-        });
-      } else {
-        // else keep as PENDING
-        updatedTicket = await prisma.ticket.update({
-          where: { id: ticketId },
-          data: { overallStatus: TicketOverallStatus.PENDING },
-          include: { assignments: { include: { user: true } } },
-        });
-      }
+      updatedTicket = await prisma.ticket.update({
+        where: { id: ticketId },
+        data: {
+          overallStatus: anyInProgress
+            ? TicketOverallStatus.IN_PROGRESS
+            : TicketOverallStatus.PENDING,
+        },
+        include: { assignments: { include: { user: true } } },
+      });
     }
 
     return res.status(200).json({
       message: "Assignment updated successfully",
       assignment: updatedAssignment,
-      overallStatus: updatedTicket?.overallStatus,
+      overallStatus: updatedTicket.overallStatus,
     });
   } catch (err: any) {
     console.error("[updateTicketStatus] Error:", err);

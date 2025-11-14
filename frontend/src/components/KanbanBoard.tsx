@@ -1,8 +1,8 @@
-import React from "react";
 import { View, Text, ScrollView } from "react-native";
 import { Droppable, Draggable } from "react-native-reanimated-dnd";
 import TicketCard from "./TicketCard";
-import { columnConfig, ColumnKey } from "../app/home/userHomeScreen";
+import { ColumnKey } from "../types/components";
+import { columnConfig } from "../constants/generals";
 import styles from "../app/home/homeScreen.styles";
 
 const KanbanBoard = ({ tickets, handleDrop }: any) => {
@@ -45,11 +45,22 @@ const KanbanBoard = ({ tickets, handleDrop }: any) => {
             contentContainerStyle={styles.columnContent}
             showsVerticalScrollIndicator={false}
           >
-            {tickets[status]?.map((t: any) => (
-              <Draggable key={t.id} draggableId={t.id} data={t}>
-                <TicketCard item={t} hideStatus={true} />
-              </Draggable>
-            ))}
+            {tickets[status]?.map((t: any) => {
+              if (status === "CLOSED") {
+                // Read-only view for CLOSED tickets
+                return (
+                  <View key={t.id}>
+                    <TicketCard item={t} hideStatus={true} readOnly={true} />
+                  </View>
+                );
+              }
+
+              return (
+                <Draggable key={t.id} draggableId={t.id} data={t}>
+                  <TicketCard item={t} hideStatus={true} />
+                </Draggable>
+              );
+            })}
             {tickets[status]?.length === 0 && (
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>No tickets yet</Text>

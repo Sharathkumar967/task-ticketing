@@ -15,3 +15,5 @@ export type UserItemProps = {
   user: userResponse;
   onPress: () => void;
 };
+
+export type ColumnKey = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CLOSED";

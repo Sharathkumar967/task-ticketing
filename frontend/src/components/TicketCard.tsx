@@ -7,29 +7,39 @@ import { ticket } from "../types/apiServices";
 const Ticket = ({
   item,
   hideStatus,
+  readOnly,
 }: {
   item: ticket;
   hideStatus?: boolean;
+  readOnly?: boolean;
 }) => (
   <TouchableOpacity
-    style={[styles.card]}
-    activeOpacity={0.8}
-    onPress={() =>
-      router.push({
-        pathname: "/tickets/TicketDetails",
-        params: { ticketId: item.id },
-      })
-    }
+    style={[styles.card, readOnly && styles.readOnlyCard]}
+    activeOpacity={readOnly ? 1 : 0.8} // disable press opacity if readOnly
+    onPress={() => {
+      if (!readOnly) {
+        router.push({
+          pathname: "/tickets/TicketDetails",
+          params: { ticketId: item.id },
+        });
+      }
+    }}
   >
     <View style={styles.ticketHeader}>
       <View style={styles.titleRow}>
-        <Text style={[styles.title]} numberOfLines={1}>
+        <Text
+          style={[styles.title, readOnly && styles.readOnlyText]}
+          numberOfLines={1}
+        >
           {item.title}
         </Text>
       </View>
     </View>
 
-    <Text style={[styles.description]} numberOfLines={2}>
+    <Text
+      style={[styles.description, readOnly && styles.readOnlyText]}
+      numberOfLines={2}
+    >
       {item.description}
     </Text>
 
@@ -37,15 +47,23 @@ const Ticket = ({
       <View style={styles.metadata}>
         <View style={styles.metaRow}>
           <Ionicons name="calendar-outline" size={14} color="#777" />
-          <Text style={[styles.metaText]}>{formatDate(item.dueDate)}</Text>
+          <Text style={[styles.metaText, readOnly && styles.readOnlyText]}>
+            {formatDate(item.dueDate)}
+          </Text>
         </View>
 
         {item.overallStatus && (
           <View style={styles.metaRow}>
             <View
-              style={[styles.priorityDot, { backgroundColor: "#27ae60" }]}
+              style={[
+                styles.priorityDot,
+                { backgroundColor: "#27ae60" },
+                readOnly && styles.readOnlyDot,
+              ]}
             />
-            <Text style={[styles.metaText]}>{item.overallStatus}</Text>
+            <Text style={[styles.metaText, readOnly && styles.readOnlyText]}>
+              {item.overallStatus}
+            </Text>
           </View>
         )}
       </View>
@@ -68,7 +86,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
   },
-
+  readOnlyCard: {
+    backgroundColor: "#f5f5f5", // gray background for read-only
+  },
   ticketHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -80,25 +100,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-
   title: {
     fontSize: 16,
     fontWeight: "bold",
     flex: 1,
     color: "#222",
   },
-
+  readOnlyText: {
+    color: "#999", // gray text for read-only
+  },
   statusContainer: {
     marginLeft: 10,
   },
-
   description: {
     fontSize: 14,
     color: "#555",
     lineHeight: 20,
     marginBottom: 12,
   },
-
   metadata: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -117,5 +136,8 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+  },
+  readOnlyDot: {
+    backgroundColor: "#bbb",
   },
 });
