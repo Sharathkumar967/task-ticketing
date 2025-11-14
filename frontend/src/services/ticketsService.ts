@@ -25,8 +25,6 @@ export const getMyTicketsService = async (): Promise<{
   data: getMyTicketsResponse;
 }> => {
   const response = await apiClient.get(apiEndpoints.GET_MY_TICKETS);
-
-  console.log("response of getMyTicketsService ", response);
   return response;
 };
 

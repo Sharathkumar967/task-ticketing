@@ -42,7 +42,7 @@ export default function ProfileScreen() {
     );
   }
 
-  const userInitial = user?.name?.charAt(0)?.toUpperCase() || "?";
+  const userInitial = user?.name?.trim()?.charAt(0)?.toUpperCase() || "?";
 
   const handleRoleSwitch = () => {
     if (viewAsUser.isViewingAsUser) {

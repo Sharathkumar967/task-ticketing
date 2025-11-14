@@ -2,7 +2,7 @@ import * as React from "react";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
-import { RootState } from "@/redux/store";
+import { RootState } from "../../redux/store";
 
 export default function TabsLayout() {
   const role = useSelector((state: RootState) => state.auth.user?.role);
@@ -35,18 +35,6 @@ export default function TabsLayout() {
           href: role === "ADMIN" ? "/(tabs)/Users" : null,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people" size={size} color={color} />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="CalendarView"
-        options={{
-          title: "Calendar",
-          headerShown: false,
-          href: role === "USER" ? "/(tabs)/CalendarView" : null,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar" size={size} color={color} />
           ),
         }}
       />

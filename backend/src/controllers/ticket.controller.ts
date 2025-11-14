@@ -1,4 +1,3 @@
-// controllers/ticket.controller.ts
 import { Response } from "express";
 import { AuthenticatedRequest } from "../types/express.d";
 import prisma from "../config/prisma.config";
@@ -14,23 +13,16 @@ export const createTicket = async (
     const { title, description, dueDate, assignedToIds } = req.body;
     const createdById = req.user?.id;
 
-    if (!title) {
-      return error(res, "Title is required.", 400);
-    }
-    if (!Array.isArray(assignedToIds) || assignedToIds.length === 0) {
+    if (!title) return error(res, "Title is required.", 400);
+    if (!Array.isArray(assignedToIds) || assignedToIds.length === 0)
       return error(res, "assignedToIds must be a non-empty array.", 400);
-    }
-    if (!createdById) {
-      return error(res, "Authentication required.", 401);
-    }
+    if (!createdById) return error(res, "Authentication required.", 401);
 
     const users = await prisma.user.findMany({
       where: { id: { in: assignedToIds } },
     });
-
-    if (users.length !== assignedToIds.length) {
+    if (users.length !== assignedToIds.length)
       return error(res, "One or more assigned users not found.", 400);
-    }
 
     const ticket = await prisma.ticket.create({
       data: {
@@ -53,7 +45,8 @@ export const createTicket = async (
       },
     });
 
-    return success(res, ticket, "Ticket created successfully.", 201);
+    console.log("Ticket created:", ticket);
+    return success(res, ticket, "Ticket created successfully.", 200);
   } catch (err: any) {
     console.error("Error creating ticket:", err);
     return error(res, "Internal server error.", 500);
@@ -61,22 +54,20 @@ export const createTicket = async (
 };
 
 // UPDATE TICKET STATUS
-interface UpdateTicketStatusBody {
-  ticketId: string;
-  status: string;
-}
-
 export const updateTicketStatus = async (
-  req: AuthenticatedRequest & { body: UpdateTicketStatusBody },
+  req: AuthenticatedRequest,
   res: Response
 ) => {
   try {
-    const { ticketId, status } = req.body;
-    const userId = req.user?.id;
-    const userRole = req.user?.role;
+    console.log("[updateTicketStatus] Incoming request:", req.body);
 
+    const { ticketId, status, userId, userRole } = req.body;
     if (!ticketId || !status) {
-      return error(res, "ticketId and status are required.", 400);
+      console.log("Missing required fields");
+      return res.status(400).json({
+        status: 400,
+        message: "Ticket ID and status are required",
+      });
     }
 
     const ticket = await prisma.ticket.findUnique({
@@ -85,20 +76,18 @@ export const updateTicketStatus = async (
     });
 
     if (!ticket) {
-      return error(res, "Ticket not found.", 404);
+      console.log("Ticket not found:", ticketId);
+      return res.status(404).json({
+        status: 404,
+        message: "Ticket not found",
+      });
     }
 
-    // ADMIN: Direct overall status update
-    if (userRole === "ADMIN") {
-      const validAdminStatuses = ["OPEN", "CLOSED", "COMPLETED", "IN_PROGRESS"];
-      if (!validAdminStatuses.includes(status)) {
-        return error(
-          res,
-          `Admins can only set status to: ${validAdminStatuses.join(", ")}.`,
-          400
-        );
-      }
+    console.log("Current ticket overall status:", ticket.overallStatus);
 
+    // ADMIN flow
+    if (userRole === "ADMIN") {
+      console.log(`Updating ticket ${ticketId} to ${status}`);
       const updatedTicket = await prisma.ticket.update({
         where: { id: ticketId },
         data: { overallStatus: status as TicketOverallStatus },
@@ -112,65 +101,80 @@ export const updateTicketStatus = async (
         },
       });
 
-      return success(res, updatedTicket, `Ticket marked as ${status}.`, 200);
+      console.log("Ticket updated:", updatedTicket.id);
+      return res.status(200).json({
+        status: 200,
+        message: "Ticket updated successfully",
+        data: updatedTicket,
+      });
     }
 
-    // USER: Must be assigned
-    const assignment = ticket.assignments.find((a) => a.userId === userId);
-    if (!assignment) {
-      return error(res, "You are not assigned to this ticket.", 403);
-    }
-
-    if (!Object.values(TicketStatus).includes(status as TicketStatus)) {
-      return error(
-        res,
-        `Invalid status. Must be one of: ${Object.values(TicketStatus).join(
-          ", "
-        )}.`,
-        400
-      );
-    }
-
-    await prisma.ticketAssignment.updateMany({
+    // USER flow
+    console.log("Updating assignment for user:", userId);
+    const assignment = await prisma.ticketAssignment.findFirst({
       where: { ticketId, userId },
-      data: { status: status as TicketStatus },
     });
 
+    if (!assignment) {
+      console.log("Assignment not found for user:", userId);
+      return res.status(404).json({
+        status: 404,
+        message: "Assignment not found for this user",
+      });
+    }
+
+    const updatedAssignment = await prisma.ticketAssignment.update({
+      where: { id: assignment.id },
+      data: { status: status as TicketStatus },
+      include: { ticket: true },
+    });
+
+    console.log(`Assignment updated → ${status}:`, updatedAssignment.id);
+
+    // Fetch all assignments again
     const allAssignments = await prisma.ticketAssignment.findMany({
       where: { ticketId },
     });
+    const allStatuses = allAssignments.map((a) => a.status);
 
+    console.log("📊 All assignment statuses:", allStatuses);
+
+    // ✅ Compute overall status based on all users’ progress
     let newOverallStatus: TicketOverallStatus;
-    if (allAssignments.every((a) => a.status === TicketStatus.COMPLETED)) {
-      newOverallStatus = TicketOverallStatus.COMPLETED;
+
+    if (allStatuses.every((s) => s === "COMPLETED")) {
+      newOverallStatus = "COMPLETED";
     } else if (
-      allAssignments.some((a) => a.status === TicketStatus.IN_PROGRESS)
+      allStatuses.some((s) => s === "IN_PROGRESS" || s === "COMPLETED")
     ) {
-      newOverallStatus = TicketOverallStatus.IN_PROGRESS;
+      // at least one user is working or done → still in progress
+      newOverallStatus = "IN_PROGRESS";
     } else {
-      newOverallStatus = TicketOverallStatus.OPEN;
+      // all are pending
+      newOverallStatus = "PENDING";
     }
 
-    const updatedTicket = await prisma.ticket.update({
+    console.log("Computed Overall Status:", newOverallStatus);
+
+    await prisma.ticket.update({
       where: { id: ticketId },
       data: { overallStatus: newOverallStatus },
-      include: {
-        creator: { select: { id: true, name: true, email: true } },
-        assignments: {
-          include: { user: { select: { id: true, name: true, email: true } } },
-        },
-      },
     });
 
-    return success(
-      res,
-      updatedTicket,
-      `Your status updated to ${status}.`,
-      200
-    );
+    console.log("Overall status synced to:", newOverallStatus);
+
+    return res.status(200).json({
+      status: 200,
+      message: "Assignment and overall ticket updated successfully",
+      data: updatedAssignment,
+    });
   } catch (err: any) {
-    console.error("Error updating ticket status:", err);
-    return error(res, "Internal server error.", 500);
+    console.error("[updateTicketStatus] Exception:", err);
+    return res.status(500).json({
+      status: 500,
+      message: "Internal server error",
+      error: err.message,
+    });
   }
 };
 
@@ -180,38 +184,26 @@ export const getAllTickets = async (
   res: Response
 ) => {
   try {
-    if (req.user?.role !== "ADMIN") {
+    if (req.user?.role !== "ADMIN")
       return error(res, "Forbidden: Admin access required.", 403);
-    }
 
     const userId = req.user?.id;
-    if (!userId) {
-      return error(res, "User not authenticated.", 401);
-    }
+    if (!userId) return error(res, "User not authenticated.", 401);
 
-    // Get tickets created by this admin or assigned to this admin
+    console.log("🔍 Fetching all tickets for admin:", userId);
+
     const tickets = await prisma.ticket.findMany({
       where: {
-        OR: [
-          { createdById: userId }, // Tickets created by this admin
-          {
-            assignments: {
-              some: {
-                userId: userId, // Tickets assigned to this admin
-              },
-            },
-          },
-        ],
+        OR: [{ createdById: userId }, { assignments: { some: { userId } } }],
       },
       orderBy: { createdAt: "desc" },
       include: {
         creator: { select: { id: true, name: true, email: true } },
-        assignments: {
-          include: { user: { select: { id: true, name: true, email: true } } },
-        },
+        assignments: { include: { user: true } },
       },
     });
 
+    console.log(`Found ${tickets.length} tickets`);
     return success(
       res,
       { total: tickets.length, tickets },
@@ -224,27 +216,27 @@ export const getAllTickets = async (
   }
 };
 
+// GET ASSIGNED TICKETS
 export const getAssignedTickets = async (
   req: AuthenticatedRequest,
   res: Response
 ) => {
   try {
     const userId = req.user?.id;
-    if (!userId) {
-      return error(res, "Unauthorized.", 401);
-    }
+    if (!userId) return error(res, "Unauthorized.", 401);
+
+    console.log("🔍 Fetching tickets assigned to user:", userId);
 
     const tickets = await prisma.ticket.findMany({
       where: { assignments: { some: { userId } } },
+      orderBy: { createdAt: "desc" },
       include: {
         creator: { select: { id: true, name: true, email: true } },
-        assignments: {
-          include: { user: { select: { id: true, name: true, email: true } } },
-        },
+        assignments: { include: { user: true } },
       },
-      orderBy: { createdAt: "desc" },
     });
 
+    console.log(`Found ${tickets.length} assigned tickets`);
     return success(
       res,
       { total: tickets.length, tickets },
@@ -267,31 +259,28 @@ export const getTicketById = async (
     const userId = req.user?.id;
     const userRole = req.user?.role;
 
-    if (!id) {
-      return error(res, "Ticket ID is required.", 400);
-    }
+    if (!id) return error(res, "Ticket ID is required.", 400);
+
+    console.log("🔍 Fetching ticket by ID:", id);
 
     const ticket = await prisma.ticket.findUnique({
       where: { id },
       include: {
         creator: { select: { id: true, name: true, email: true } },
-        assignments: {
-          include: { user: { select: { id: true, name: true, email: true } } },
-        },
+        assignments: { include: { user: true } },
       },
     });
 
-    if (!ticket) {
-      return error(res, "Ticket not found.", 404);
+    if (!ticket) return error(res, "Ticket not found.", 404);
+
+    if (
+      userRole !== "ADMIN" &&
+      !ticket.assignments.some((a) => a.userId === userId)
+    ) {
+      return error(res, "Access denied: Ticket not assigned to you.", 403);
     }
 
-    if (userRole !== "ADMIN") {
-      const isAssigned = ticket.assignments.some((a) => a.userId === userId);
-      if (!isAssigned) {
-        return error(res, "Access denied: Ticket not assigned to you.", 403);
-      }
-    }
-
+    console.log("Ticket fetched successfully");
     return success(res, ticket, "Ticket fetched successfully.", 200);
   } catch (err: any) {
     console.error("Error fetching ticket by ID:", err);
@@ -305,32 +294,25 @@ export const editTicket = async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     const { title, description, dueDate, assignedToIds } = req.body;
 
-    if (!id) {
-      return error(res, "Ticket ID is required.", 400);
-    }
-
-    if (req.user?.role !== "ADMIN") {
+    if (!id) return error(res, "Ticket ID is required.", 400);
+    if (req.user?.role !== "ADMIN")
       return error(res, "Forbidden: Admin access required.", 403);
-    }
+
+    console.log("🛠 Editing ticket:", id);
 
     const existingTicket = await prisma.ticket.findUnique({ where: { id } });
-    if (!existingTicket) {
-      return error(res, "Ticket not found.", 404);
-    }
+    if (!existingTicket) return error(res, "Ticket not found.", 404);
 
     let validAssignedToIds: number[] | undefined;
     if (assignedToIds !== undefined) {
-      if (!Array.isArray(assignedToIds) || assignedToIds.length === 0) {
+      if (!Array.isArray(assignedToIds) || assignedToIds.length === 0)
         return error(res, "assignedToIds must be a non-empty array.", 400);
-      }
 
       const users = await prisma.user.findMany({
         where: { id: { in: assignedToIds } },
       });
-
-      if (users.length !== assignedToIds.length) {
+      if (users.length !== assignedToIds.length)
         return error(res, "One or more assigned users not found.", 400);
-      }
 
       validAssignedToIds = assignedToIds;
     }
@@ -356,12 +338,11 @@ export const editTicket = async (req: AuthenticatedRequest, res: Response) => {
       data: updateData,
       include: {
         creator: { select: { id: true, name: true, email: true } },
-        assignments: {
-          include: { user: { select: { id: true, name: true, email: true } } },
-        },
+        assignments: { include: { user: true } },
       },
     });
 
+    console.log("Ticket updated successfully");
     return success(res, updatedTicket, "Ticket updated successfully.", 200);
   } catch (err: any) {
     console.error("Error editing ticket:", err);
