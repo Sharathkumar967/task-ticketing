@@ -29,6 +29,7 @@ export type updateTicketStatusParams = {
   ticketId: string;
   status: string;
   userId?: string;
+  userRole?: string;
 };
 
 export type authResponse = {
@@ -90,6 +91,7 @@ export interface getTicketDetailsByIdResponse {
 export interface updateTicketStatusResponse {
   status: number;
   message: string;
+  data: ticket;
 }
 
 export interface ticket {

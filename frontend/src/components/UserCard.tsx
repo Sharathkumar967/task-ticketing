@@ -1,6 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import React from "react";
-import { UserItemProps } from "@/types/components";
+import { UserItemProps } from "../types/components";
 
 const UserItem = ({ user, onPress }: UserItemProps) => {
   const isAdmin = user.role === "ADMIN";
@@ -9,7 +8,7 @@ const UserItem = ({ user, onPress }: UserItemProps) => {
     <TouchableOpacity style={styles.card} onPress={onPress}>
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>
-          {user.name.charAt(0).toUpperCase()}
+          {user?.name?.trim()?.charAt(0)?.toUpperCase() || "?"}
         </Text>
       </View>
 

@@ -65,20 +65,28 @@ const TicketDetailsScreen = () => {
   );
 
   const updateStatus = async (newStatus: string) => {
-    if (!ticketId) return;
+    if (!ticketId || !ticket) return;
+
     setUpdating(true);
     try {
       const res = await updateTicketStatusService({
         ticketId,
         status: newStatus,
+        userRole: "ADMIN",
       });
 
-      if (res.data.status === 200) {
+      if (res.data.data && res.data.message) {
+        setTicket({ ...ticket, overallStatus: res.data.data.overallStatus });
+
         Alert.alert("Success", res.data.message);
-        await getTicketDetails();
+      } else {
+        Alert.alert("Error", "Unexpected response format");
       }
     } catch (err: any) {
-      Alert.alert("Error", err.response?.data?.message || "Update failed");
+      Alert.alert(
+        "Error",
+        err.response?.data?.message || "Something went wrong"
+      );
     } finally {
       setUpdating(false);
     }

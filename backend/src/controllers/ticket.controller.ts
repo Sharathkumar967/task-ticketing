@@ -14,6 +14,7 @@ export const createTicket = async (
     const createdById = req.user?.id;
 
     if (!title) return error(res, "Title is required.", 400);
+
     if (!Array.isArray(assignedToIds) || assignedToIds.length === 0)
       return error(res, "assignedToIds must be a non-empty array.", 400);
     if (!createdById) return error(res, "Authentication required.", 401);
@@ -45,7 +46,7 @@ export const createTicket = async (
       },
     });
 
-    console.log("Ticket created:", ticket);
+    console.log("Ticket created");
     return success(res, ticket, "Ticket created successfully.", 200);
   } catch (err: any) {
     console.error("Error creating ticket:", err);
@@ -54,20 +55,18 @@ export const createTicket = async (
 };
 
 // UPDATE TICKET STATUS
+// UPDATE TICKET STATUS
 export const updateTicketStatus = async (
   req: AuthenticatedRequest,
   res: Response
 ) => {
   try {
-    console.log("[updateTicketStatus] Incoming request:", req.body);
-
     const { ticketId, status, userId, userRole } = req.body;
+
     if (!ticketId || !status) {
-      console.log("Missing required fields");
-      return res.status(400).json({
-        status: 400,
-        message: "Ticket ID and status are required",
-      });
+      return res
+        .status(400)
+        .json({ message: "Ticket ID and status are required" });
     }
 
     const ticket = await prisma.ticket.findUnique({
@@ -75,106 +74,87 @@ export const updateTicketStatus = async (
       include: { assignments: true },
     });
 
-    if (!ticket) {
-      console.log("Ticket not found:", ticketId);
-      return res.status(404).json({
-        status: 404,
-        message: "Ticket not found",
-      });
-    }
+    if (!ticket) return res.status(404).json({ message: "Ticket not found" });
 
-    console.log("Current ticket overall status:", ticket.overallStatus);
-
-    // ADMIN flow
+    // --- ADMIN FLOW ---
     if (userRole === "ADMIN") {
-      console.log(`Updating ticket ${ticketId} to ${status}`);
+      const allowedStatuses: TicketOverallStatus[] = [
+        "OPEN",
+        "PENDING",
+        "IN_PROGRESS",
+        "COMPLETED",
+        "CLOSED",
+      ];
+
+      if (!allowedStatuses.includes(status as TicketOverallStatus)) {
+        return res
+          .status(400)
+          .json({ message: `Invalid status for admin: ${status}` });
+      }
+
       const updatedTicket = await prisma.ticket.update({
         where: { id: ticketId },
         data: { overallStatus: status as TicketOverallStatus },
-        include: {
-          creator: { select: { id: true, name: true, email: true } },
-          assignments: {
-            include: {
-              user: { select: { id: true, name: true, email: true } },
-            },
-          },
-        },
+        include: { assignments: { include: { user: true } } },
       });
 
-      console.log("Ticket updated:", updatedTicket.id);
       return res.status(200).json({
-        status: 200,
-        message: "Ticket updated successfully",
+        message: "Ticket overall status updated successfully",
         data: updatedTicket,
       });
     }
 
-    // USER flow
-    console.log("Updating assignment for user:", userId);
+    // --- USER FLOW ---
+    if (!userId) {
+      return res
+        .status(400)
+        .json({ message: "User ID required for assignment update" });
+    }
+
     const assignment = await prisma.ticketAssignment.findFirst({
       where: { ticketId, userId },
     });
 
     if (!assignment) {
-      console.log("Assignment not found for user:", userId);
-      return res.status(404).json({
-        status: 404,
-        message: "Assignment not found for this user",
+      return res
+        .status(404)
+        .json({ message: "Assignment not found for this user" });
+    }
+
+    // Users cannot set CLOSED
+    const allowedUserStatuses: TicketStatus[] = [
+      "PENDING",
+      "IN_PROGRESS",
+      "COMPLETED",
+    ];
+    if (!allowedUserStatuses.includes(status as TicketStatus)) {
+      return res.status(400).json({
+        message: `Users cannot set '${status}'. Only PENDING, IN_PROGRESS, or COMPLETED are allowed.`,
       });
     }
 
+    // Update assignment status
     const updatedAssignment = await prisma.ticketAssignment.update({
       where: { id: assignment.id },
       data: { status: status as TicketStatus },
       include: { ticket: true },
     });
 
-    console.log(`Assignment updated → ${status}:`, updatedAssignment.id);
-
-    // Fetch all assignments again
-    const allAssignments = await prisma.ticketAssignment.findMany({
-      where: { ticketId },
-    });
-    const allStatuses = allAssignments.map((a) => a.status);
-
-    console.log("📊 All assignment statuses:", allStatuses);
-
-    // ✅ Compute overall status based on all users’ progress
-    let newOverallStatus: TicketOverallStatus;
-
-    if (allStatuses.every((s) => s === "COMPLETED")) {
-      newOverallStatus = "COMPLETED";
-    } else if (
-      allStatuses.some((s) => s === "IN_PROGRESS" || s === "COMPLETED")
-    ) {
-      // at least one user is working or done → still in progress
-      newOverallStatus = "IN_PROGRESS";
-    } else {
-      // all are pending
-      newOverallStatus = "PENDING";
-    }
-
-    console.log("Computed Overall Status:", newOverallStatus);
-
+    // Immediately update ticket overallStatus to match user update
     await prisma.ticket.update({
       where: { id: ticketId },
-      data: { overallStatus: newOverallStatus },
+      data: { overallStatus: status as TicketOverallStatus },
     });
 
-    console.log("Overall status synced to:", newOverallStatus);
-
     return res.status(200).json({
-      status: 200,
-      message: "Assignment and overall ticket updated successfully",
+      message: "Assignment updated and overall status synced",
       data: updatedAssignment,
     });
   } catch (err: any) {
-    console.error("[updateTicketStatus] Exception:", err);
-    return res.status(500).json({
-      status: 500,
-      message: "Internal server error",
-      error: err.message,
-    });
+    console.error("[updateTicketStatus] Error:", err);
+    return res
+      .status(500)
+      .json({ message: "Internal server error", error: err.message });
   }
 };
 

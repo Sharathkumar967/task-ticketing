@@ -1,13 +1,11 @@
 import React, { useEffect, useState, useRef } from "react";
 import {
-  StyleSheet,
   Text,
   View,
   ActivityIndicator,
   ScrollView,
   Animated,
   TouchableOpacity,
-  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -25,10 +23,10 @@ import {
   updateTicketStatusService,
 } from "../../services/ticketsService";
 import { ticket as TicketType } from "../../types/apiServices";
+import styles from "./homeScreen.styles";
+import { router } from "expo-router";
 
 type ColumnKey = "PENDING" | "IN_PROGRESS" | "COMPLETED";
-
-const { width } = Dimensions.get("window");
 
 const columnConfig = {
   PENDING: {
@@ -76,6 +74,7 @@ const UserHomeScreen = () => {
     }).start();
   }, []);
 
+  /** FETCH TICKETS */
   const fetchTickets = async () => {
     setLoading(true);
     try {
@@ -100,21 +99,36 @@ const UserHomeScreen = () => {
       }
       setTickets(grouped);
     } catch (err) {
-      console.error(err);
+      console.error("[fetchTickets] Error:", err);
     } finally {
       setLoading(false);
     }
   };
 
+  /** UPDATE TICKET STATUS */
   const updateTicketStatus = async (ticketId: string, newStatus: ColumnKey) => {
     try {
+      if (!userId) {
+        console.warn("User ID not available");
+        return;
+      }
+
       const payload = { ticketId, status: newStatus, userRole, userId };
-      await updateTicketStatusService(payload);
+      console.log("Updating ticket status with payload:", payload);
+
+      const response = await updateTicketStatusService(payload);
+      console.log("Update API response:", response?.data);
+
+      if (!response?.data?.data) {
+        console.warn("Update may not have succeeded:", response?.data?.message);
+      }
     } catch (err) {
-      console.error(err);
+      console.error("[updateTicketStatus] API error:", err);
+      throw err; // propagate to revert UI if needed
     }
   };
 
+  /** HANDLE DROP WITH OPTIMISTIC UI + REVERT ON FAILURE */
   const handleDrop = async (
     ticket: TicketType,
     from: ColumnKey,
@@ -122,6 +136,9 @@ const UserHomeScreen = () => {
   ) => {
     if (from === to) return;
 
+    const previousTickets = { ...tickets }; // keep a copy to revert if API fails
+
+    // Optimistically update UI
     setTickets((prev) => {
       const updated = { ...prev };
       updated[from] = updated[from].filter((t) => t.id !== ticket.id);
@@ -142,9 +159,16 @@ const UserHomeScreen = () => {
       return updated;
     });
 
-    await updateTicketStatus(ticket.id, to);
+    // Call API
+    try {
+      await updateTicketStatus(ticket.id, to);
+    } catch (err) {
+      console.warn("Reverting UI due to API failure");
+      setTickets(previousTickets); // revert
+    }
   };
 
+  /** FORMAT DATE */
   const formatDate = (dateStr: string) => {
     if (!dateStr) return null;
     const date = new Date(dateStr);
@@ -152,9 +176,11 @@ const UserHomeScreen = () => {
     return date.toISOString().split("T")[0];
   };
 
+  /** FLATTEN TICKETS */
   const allTickets = Object.values(tickets).flat();
   const totalTickets = allTickets.length;
 
+  /** MARKED DATES FOR CALENDAR */
   const markedDates = allTickets.reduce((acc, ticket) => {
     const formattedDate = formatDate(ticket.dueDate);
     if (formattedDate) {
@@ -170,6 +196,7 @@ const UserHomeScreen = () => {
     return acc;
   }, {} as Record<string, any>);
 
+  /** RENDER TICKET CARD */
   const renderTicket = (ticket: TicketType, status: ColumnKey) => (
     <View
       style={[styles.card, { borderLeftColor: columnConfig[status].iconColor }]}
@@ -214,6 +241,7 @@ const UserHomeScreen = () => {
     </View>
   );
 
+  /** RENDER KANBAN COLUMN */
   const renderColumn = (status: ColumnKey) => (
     <View key={status} style={styles.columnWrapper}>
       <View
@@ -285,7 +313,12 @@ const UserHomeScreen = () => {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <DropProvider>
         <SafeAreaView style={styles.container}>
-          <CustomHeader title="Dashboard" />
+          <CustomHeader
+            title="Dashboard"
+            rightIcon="person-circle-outline"
+            onRightPress={() => router.push("/(tabs)/Profile")}
+            showBack={false}
+          />
 
           <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
             {/* Stats Overview */}
@@ -321,7 +354,7 @@ const UserHomeScreen = () => {
                   onPress={() => setShowCalendar(!showCalendar)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.sectionTitle}>📅 Calendar</Text>
+                  <Text style={styles.sectionTitle}>Calendar</Text>
                   <Text style={styles.toggleIcon}>
                     {showCalendar ? "▼" : "▶"}
                   </Text>
@@ -361,7 +394,7 @@ const UserHomeScreen = () => {
                 <View style={styles.selectedDateSection}>
                   <View style={styles.selectedDateHeader}>
                     <Text style={styles.selectedDateTitle}>
-                      📍 Tickets due on{" "}
+                      Tickets due on{" "}
                       {new Date(selectedDate).toLocaleDateString("en-US", {
                         month: "long",
                         day: "numeric",
@@ -394,7 +427,7 @@ const UserHomeScreen = () => {
 
               {/* Kanban Board - Vertical Layout for Mobile */}
               <View style={styles.kanbanSection}>
-                <Text style={styles.sectionTitle}>🎯 Workflow Board</Text>
+                <Text style={styles.sectionTitle}>Workflow Board</Text>
                 <Text style={styles.dragInstructions}>
                   Hold and drag tickets between columns to update status
                 </Text>
@@ -411,295 +444,5 @@ const UserHomeScreen = () => {
     </GestureHandlerRootView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F2F2F7",
-  },
-  content: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#F2F2F7",
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: "#8E8E93",
-    fontWeight: "500",
-  },
-  statsContainer: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 16,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  statNumber: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#007AFF",
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 13,
-    color: "#8E8E93",
-    fontWeight: "500",
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 32,
-  },
-  calendarSection: {
-    marginHorizontal: 16,
-    marginBottom: 20,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#1C1C1E",
-  },
-  toggleIcon: {
-    fontSize: 16,
-    color: "#8E8E93",
-  },
-  calendarWrapper: {
-    paddingHorizontal: 8,
-    paddingBottom: 16,
-  },
-  calendar: {
-    borderRadius: 12,
-  },
-  selectedDateSection: {
-    marginHorizontal: 16,
-    marginBottom: 20,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  selectedDateHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  selectedDateTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1C1C1E",
-    flex: 1,
-  },
-  clearButton: {
-    fontSize: 14,
-    color: "#007AFF",
-    fontWeight: "600",
-  },
-  selectedTicketsList: {
-    gap: 12,
-  },
-  noTicketsContainer: {
-    padding: 32,
-    alignItems: "center",
-  },
-  noTicketsText: {
-    fontSize: 15,
-    color: "#8E8E93",
-    textAlign: "center",
-  },
-  kanbanSection: {
-    marginTop: 8,
-    paddingHorizontal: 16,
-  },
-  dragInstructions: {
-    fontSize: 13,
-    color: "#8E8E93",
-    marginTop: 8,
-    marginBottom: 16,
-    textAlign: "center",
-    fontStyle: "italic",
-  },
-  kanbanContainer: {
-    gap: 16,
-  },
-  columnWrapper: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    marginBottom: 8,
-  },
-  columnHeader: {
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  columnIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  columnCount: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  columnTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#1C1C1E",
-    flex: 1,
-  },
-  dropZone: {
-    minHeight: 120,
-    paddingVertical: 8,
-  },
-  columnScroll: {
-    maxHeight: 400,
-  },
-  columnContent: {
-    padding: 12,
-    gap: 12,
-  },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 16,
-    borderLeftWidth: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-    gap: 8,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#1C1C1E",
-    flex: 1,
-  },
-  cardDescription: {
-    fontSize: 13,
-    color: "#8E8E93",
-    lineHeight: 18,
-    marginBottom: 12,
-  },
-  cardFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  assigneeContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    flex: 1,
-  },
-  avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#007AFF",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  assigneeText: {
-    fontSize: 13,
-    color: "#1C1C1E",
-    fontWeight: "500",
-    flex: 1,
-  },
-  dueDateText: {
-    fontSize: 12,
-    color: "#8E8E93",
-    fontWeight: "500",
-  },
-  dragHint: {
-    alignItems: "center",
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: "#F2F2F7",
-  },
-  dragHintText: {
-    fontSize: 11,
-    color: "#C7C7CC",
-    fontStyle: "italic",
-  },
-  emptyContainer: {
-    padding: 32,
-    alignItems: "center",
-  },
-  emptyText: {
-    fontSize: 14,
-    color: "#C7C7CC",
-    textAlign: "center",
-    fontWeight: "500",
-  },
-  emptySubtext: {
-    fontSize: 12,
-    color: "#E5E5EA",
-    textAlign: "center",
-    marginTop: 4,
-  },
-});
 
 export default UserHomeScreen;
