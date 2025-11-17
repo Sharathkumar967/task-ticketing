@@ -77,7 +77,7 @@ export const useAuth = () => {
         const refreshToken = response.data.refreshToken;
 
         if (accessToken && refreshToken) {
-          await saveTokensAndNavigate(accessToken, refreshToken); // 🔥 auto login
+          await saveTokensAndNavigate(accessToken, refreshToken);
         }
       }
     } catch (error: any) {
