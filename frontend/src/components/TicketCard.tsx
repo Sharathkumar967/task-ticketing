@@ -2,20 +2,12 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { formatDate } from "../utils/generalUtils";
-import { ticket } from "../types/apiServices";
+import { ticketCardProps } from "../types/components";
 
-const Ticket = ({
-  item,
-  hideStatus,
-  readOnly,
-}: {
-  item: ticket;
-  hideStatus?: boolean;
-  readOnly?: boolean;
-}) => (
+const Ticket = ({ item, hideStatus, readOnly }: ticketCardProps) => (
   <TouchableOpacity
     style={[styles.card, readOnly && styles.readOnlyCard]}
-    activeOpacity={readOnly ? 1 : 0.8} // disable press opacity if readOnly
+    activeOpacity={readOnly ? 1 : 0.8}
     onPress={() => {
       if (!readOnly) {
         router.push({
@@ -87,7 +79,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
   },
   readOnlyCard: {
-    backgroundColor: "#f5f5f5", // gray background for read-only
+    backgroundColor: "#f5f5f5",
   },
   ticketHeader: {
     flexDirection: "row",
@@ -107,7 +99,7 @@ const styles = StyleSheet.create({
     color: "#222",
   },
   readOnlyText: {
-    color: "#999", // gray text for read-only
+    color: "#999",
   },
   statusContainer: {
     marginLeft: 10,

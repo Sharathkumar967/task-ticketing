@@ -1,12 +1,13 @@
-import React from "react";
 import { View, Text } from "react-native";
 import styles from "../app/home/homeScreen.styles";
+import { ColumnKey } from "../types/components";
+import { ticket } from "../types/apiServices";
 
 const StatsOverview = ({
   tickets,
   totalTickets,
 }: {
-  tickets: any;
+  tickets: Record<ColumnKey, ticket[]>;
   totalTickets: number;
 }) => (
   <View style={styles.statsContainer}>

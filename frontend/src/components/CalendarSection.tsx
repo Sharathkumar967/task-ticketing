@@ -1,8 +1,8 @@
-import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { Calendar } from "react-native-calendars";
 import { formatDateForApi } from "../utils/generalUtils";
 import styles from "../app/home/homeScreen.styles";
+import { CalendarSectionProps } from "../types/components";
 
 const CalendarSection = ({
   showCalendar,
@@ -11,7 +11,7 @@ const CalendarSection = ({
   selectedDate,
   setSelectedDate,
   scrollRef,
-}: any) => {
+}: CalendarSectionProps) => {
   const markedDates = tickets.reduce((acc: any, ticket: any) => {
     const formattedDate = formatDateForApi(ticket.dueDate);
     if (formattedDate) {

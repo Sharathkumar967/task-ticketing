@@ -1,16 +1,17 @@
-import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import TicketCard from "./TicketCard";
 import { formatDateForApi } from "../utils/generalUtils";
 import styles from "../app/home/homeScreen.styles";
+import { SelectedDateTicketsProps } from "../types/components";
+import { ticket } from "../types/apiServices";
 
 const SelectedDateTickets = ({
   tickets,
   selectedDate,
   setSelectedDate,
-}: any) => {
+}: SelectedDateTicketsProps) => {
   const filteredTickets = tickets.filter(
-    (t: any) => formatDateForApi(t.dueDate) === selectedDate
+    (ticket: ticket) => formatDateForApi(ticket.dueDate) === selectedDate
   );
 
   return (
@@ -30,8 +31,8 @@ const SelectedDateTickets = ({
       </View>
       {filteredTickets.length > 0 ? (
         <View style={styles.selectedTicketsList}>
-          {filteredTickets.map((t: any) => (
-            <TicketCard key={t.id} item={t} />
+          {filteredTickets.map((ticket: ticket) => (
+            <TicketCard key={ticket.id} item={ticket} />
           ))}
         </View>
       ) : (

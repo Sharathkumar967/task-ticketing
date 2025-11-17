@@ -4,7 +4,6 @@ import { useSelector } from "react-redux";
 import { RootState } from "../redux/store";
 
 export default function SessionOverlay() {
-  
   const isRefreshing = useSelector(
     (state: RootState) => state.auth.isRefreshing
   );

@@ -1,4 +1,3 @@
-import React from "react";
 import {
   View,
   Text,
@@ -47,7 +46,10 @@ const CreateTicketScreen = () => {
   } = useCreateTicket({
     mode: params.mode,
     ticketData: params.ticketData,
-    onSuccess: () => router.back(),
+    onSuccess: () =>
+      params.mode === "edit"
+        ? router.back()
+        : router.push("/(tabs)/Home?refresh=true"),
   });
 
   return (

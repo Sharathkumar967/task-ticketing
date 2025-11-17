@@ -6,16 +6,17 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from "react-native";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getAllTicketsService } from "../../services/ticketsService";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import CustomHeader from "../../components/CustomHeader";
 import TicketCard from "../../components/TicketCard";
+import { ticket } from "../../types/apiServices";
 
-const AdminHomeScreen = () => {
-  const [tickets, setTickets] = useState<any[]>([]);
+const AdminHomeScreen = ({ refresh }: { refresh?: string }) => {
+  const [tickets, setTickets] = useState<ticket[]>([]);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -32,10 +33,17 @@ const AdminHomeScreen = () => {
     }
   }, []);
 
+  useEffect(() => {
+    getAllTickets();
+  }, []);
+
   useFocusEffect(
     React.useCallback(() => {
-      getAllTickets();
-    }, [getAllTickets])
+      if (refresh === "true") {
+        getAllTickets();
+        router.setParams({ refresh: undefined });
+      }
+    }, [refresh, getAllTickets])
   );
 
   return (
@@ -119,6 +127,9 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOpacity: 0.3,
     shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
   },
 });

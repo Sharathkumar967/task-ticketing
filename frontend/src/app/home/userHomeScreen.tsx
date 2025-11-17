@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { View, ActivityIndicator, ScrollView, Animated } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { DropProvider } from "react-native-reanimated-dnd";
 import { useSelector } from "react-redux";
 import CustomHeader from "../../components/CustomHeader";
@@ -18,10 +17,11 @@ import styles from "./homeScreen.styles";
 import { router } from "expo-router";
 
 import { ColumnKey } from "../../types/components";
+import { RootState } from "../../redux/store";
 
 const UserHomeScreen = () => {
-  const userRole = useSelector((state: any) => state.auth.user?.role);
-  const userId = useSelector((state: any) => state.auth.user?.id);
+  const userRole = useSelector((state: RootState) => state.auth.user?.role);
+  const userId = useSelector((state: RootState) => state.auth.user?.id);
 
   const [tickets, setTickets] = useState<Record<ColumnKey, TicketType[]>>({
     PENDING: [],
@@ -56,7 +56,7 @@ const UserHomeScreen = () => {
         PENDING: [],
         IN_PROGRESS: [],
         COMPLETED: [],
-        CLOSED: [], // added closed column
+        CLOSED: [],
       };
 
       ticketsData.forEach((t: TicketType) => {
@@ -69,7 +69,7 @@ const UserHomeScreen = () => {
 
       setTickets(grouped);
     } catch (err) {
-      console.error("[fetchTickets] Error:", err);
+      console.error("fetchTickets Error:", err);
     } finally {
       setLoading(false);
     }
@@ -77,7 +77,7 @@ const UserHomeScreen = () => {
 
   const updateTicketStatus = async (ticketId: string, newStatus: ColumnKey) => {
     try {
-      if (!userId) return console.warn("User ID not available");
+      if (!userId) return console.warn("User ID not available in store");
       await updateTicketStatusService({
         ticketId,
         status: newStatus,
@@ -85,7 +85,7 @@ const UserHomeScreen = () => {
         userId,
       });
     } catch (err) {
-      console.error("[updateTicketStatus] API error:", err);
+      console.error("updateTicketStatus Error:", err);
       throw err;
     }
   };
@@ -121,43 +121,41 @@ const UserHomeScreen = () => {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <DropProvider>
-        <SafeAreaView style={styles.container}>
-          <CustomHeader
-            title="Dashboard"
-            rightIcon="person-circle-outline"
-            onRightPress={() => router.push("/(tabs)/Profile")}
-            showBack={false}
-          />
-          <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-            <StatsOverview tickets={tickets} totalTickets={allTickets.length} />
-            <ScrollView
-              ref={scrollViewRef}
-              style={styles.scrollView}
-              contentContainerStyle={styles.scrollContent}
-            >
-              <CalendarSection
-                showCalendar={showCalendar}
-                setShowCalendar={setShowCalendar}
+    <DropProvider>
+      <SafeAreaView style={styles.container}>
+        <CustomHeader
+          title="Dashboard"
+          rightIcon="person-circle-outline"
+          onRightPress={() => router.push("/(tabs)/Profile")}
+          showBack={false}
+        />
+        <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+          <StatsOverview tickets={tickets} totalTickets={allTickets.length} />
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+          >
+            <CalendarSection
+              showCalendar={showCalendar}
+              setShowCalendar={setShowCalendar}
+              tickets={allTickets}
+              selectedDate={selectedDate}
+              setSelectedDate={setSelectedDate}
+              scrollRef={scrollViewRef}
+            />
+            {selectedDate && (
+              <SelectedDateTickets
                 tickets={allTickets}
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
-                scrollRef={scrollViewRef}
               />
-              {selectedDate && (
-                <SelectedDateTickets
-                  tickets={allTickets}
-                  selectedDate={selectedDate}
-                  setSelectedDate={setSelectedDate}
-                />
-              )}
-              <KanbanBoard tickets={tickets} handleDrop={handleDrop} />
-            </ScrollView>
-          </Animated.View>
-        </SafeAreaView>
-      </DropProvider>
-    </GestureHandlerRootView>
+            )}
+            <KanbanBoard tickets={tickets} handleDrop={handleDrop} />
+          </ScrollView>
+        </Animated.View>
+      </SafeAreaView>
+    </DropProvider>
   );
 };
 

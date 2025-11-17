@@ -4,8 +4,10 @@ import TicketCard from "./TicketCard";
 import { ColumnKey } from "../types/components";
 import { columnConfig } from "../constants/generals";
 import styles from "../app/home/homeScreen.styles";
+import { KanbanBoardProps } from "../types/components";
+import { ticket } from "../types/apiServices";
 
-const KanbanBoard = ({ tickets, handleDrop }: any) => {
+const KanbanBoard = ({ tickets, handleDrop }: KanbanBoardProps) => {
   const renderColumn = (status: ColumnKey) => (
     <View key={status} style={styles.columnWrapper}>
       <View
@@ -27,11 +29,11 @@ const KanbanBoard = ({ tickets, handleDrop }: any) => {
       <Droppable
         droppableId={status}
         onDrop={(data: any) => {
-          const t = data;
+          const ticket = data;
           const from = (Object.keys(tickets) as ColumnKey[]).find((k) =>
-            tickets[k].some((x: { id: string }) => x.id === t.id)
+            tickets[k].some((x: ticket) => x.id === ticket.id)
           );
-          handleDrop(t, from, status);
+          handleDrop(ticket, from as ColumnKey, status);
         }}
       >
         <View
@@ -45,19 +47,26 @@ const KanbanBoard = ({ tickets, handleDrop }: any) => {
             contentContainerStyle={styles.columnContent}
             showsVerticalScrollIndicator={false}
           >
-            {tickets[status]?.map((t: any) => {
+            {tickets[status]?.map((ticket: ticket) => {
               if (status === "CLOSED") {
-                // Read-only view for CLOSED tickets
                 return (
-                  <View key={t.id}>
-                    <TicketCard item={t} hideStatus={true} readOnly={true} />
+                  <View key={ticket.id}>
+                    <TicketCard
+                      item={ticket}
+                      hideStatus={true}
+                      readOnly={true}
+                    />
                   </View>
                 );
               }
 
               return (
-                <Draggable key={t.id} draggableId={t.id} data={t}>
-                  <TicketCard item={t} hideStatus={true} />
+                <Draggable
+                  key={ticket.id}
+                  draggableId={ticket.id}
+                  data={ticket}
+                >
+                  <TicketCard item={ticket} hideStatus={true} />
                 </Draggable>
               );
             })}
