@@ -29,6 +29,19 @@ export const useAuth = () => {
     setSelectedRole("USER");
   };
 
+  const saveTokensAndNavigate = async (
+    accessToken: string,
+    refreshToken: string
+  ) => {
+    await secureStore.setItem(ACCESS_TOKEN, accessToken);
+    await secureStore.setItem(REFRESH_TOKEN, refreshToken);
+
+    const userProfile = await getUserProfileService();
+    dispatch(login({ user: userProfile.data }));
+
+    router.replace("/(tabs)/Home");
+  };
+
   const handleLogin = async () => {
     const payload = { email, password };
 
@@ -37,44 +50,38 @@ export const useAuth = () => {
 
       if (response.data.status === 200) {
         Alert.alert(response.data.message);
-        console.log("accesstoken", response.data.accessToken);
-        console.log("refreshtoken", response.data.refreshToken);
 
         const accessToken = response.data.accessToken;
         const refreshToken = response.data.refreshToken;
 
         if (accessToken && refreshToken) {
-          await secureStore.setItem(ACCESS_TOKEN, accessToken);
-          await secureStore.setItem(REFRESH_TOKEN, refreshToken);
-          const userProfile = await getUserProfileService();
-          dispatch(login({ user: userProfile.data }));
-          router.replace("/(tabs)/Home");
+          await saveTokensAndNavigate(accessToken, refreshToken);
         }
       }
     } catch (error: any) {
-      Alert.alert(error.response?.data?.message);
+      Alert.alert(error?.response?.data?.message || "Login failed");
       console.log(error);
     }
   };
 
   const handleRegister = async () => {
     const payload = { name, email, password, role: selectedRole };
+
     try {
       const response = await registerService(payload);
 
       if (response.data.status === 200) {
         Alert.alert(response.data.message);
+
         const accessToken = response.data.accessToken;
         const refreshToken = response.data.refreshToken;
 
         if (accessToken && refreshToken) {
-          await secureStore.setItem(ACCESS_TOKEN, accessToken);
-          await secureStore.setItem(REFRESH_TOKEN, refreshToken);
-          setIsLogin(true);
+          await saveTokensAndNavigate(accessToken, refreshToken); // 🔥 auto login
         }
       }
     } catch (error: any) {
-      Alert.alert(error.response?.data?.message);
+      Alert.alert(error?.response?.data?.message || "Registration failed");
       console.log(error);
     }
   };
